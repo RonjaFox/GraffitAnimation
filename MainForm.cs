@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
 using GraffitAnimation.Models;
 using GraffitAnimation.Services;
@@ -23,6 +24,7 @@ namespace GraffitAnimation
             drawingTool = new DrawingTool();
             exportService = new ExportService();
             InitializePlaybackTimer();
+            this.Load += MainForm_Load;
         }
 
         private void InitializePlaybackTimer()
