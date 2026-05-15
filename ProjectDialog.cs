@@ -41,9 +41,11 @@ namespace GraffitAnimation
             this.Controls.Add(heightLabel);
             yPos += 25;
 
-            NumericUpDown widthBox = new NumericUpDown() { Left = 20, Top = yPos, Width = 140, Value = 800, Minimum = 100, Maximum = 4000 };
+            NumericUpDown widthBox = new NumericUpDown() { Left = 20, Top = yPos, Width = 140, Minimum = 100, Maximum = 4000 };
+            widthBox.Value = 800;
             this.Controls.Add(widthBox);
-            NumericUpDown heightBox = new NumericUpDown() { Left = 180, Top = yPos, Width = 140, Value = 600, Minimum = 100, Maximum = 4000 };
+            NumericUpDown heightBox = new NumericUpDown() { Left = 180, Top = yPos, Width = 140, Minimum = 100, Maximum = 4000 };
+            heightBox.Value = 600;
             this.Controls.Add(heightBox);
             yPos += 40;
 

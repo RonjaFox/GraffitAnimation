@@ -16,6 +16,11 @@ namespace GraffitAnimation.Services
         private Bitmap currentBitmap;
         private bool isDrawing = false;
 
+        public DrawingTool()
+        {
+            currentColor = Color.Black;
+        }
+
         public void SelectTool(ToolType tool)
         {
             currentTool = tool;
@@ -28,14 +33,20 @@ namespace GraffitAnimation.Services
 
         public void StartDrawing(Point point, Bitmap bitmap)
         {
+            if (bitmap == null) return;
             currentBitmap = bitmap;
             lastPoint = point;
             isDrawing = true;
+
+            if (currentTool == ToolType.Brush)
+            {
+                DrawPoint(bitmap, point);
+            }
         }
 
         public void Draw(Point point, Bitmap bitmap)
         {
-            if (!isDrawing) return;
+            if (!isDrawing || bitmap == null) return;
             currentBitmap = bitmap;
 
             using (Graphics g = Graphics.FromImage(currentBitmap))
@@ -49,7 +60,6 @@ namespace GraffitAnimation.Services
                         EraseLine(g, lastPoint, point);
                         break;
                     case ToolType.Fill:
-                        // Заливка выполняется в EndDrawing
                         break;
                 }
             }
@@ -58,11 +68,25 @@ namespace GraffitAnimation.Services
 
         public void EndDrawing()
         {
-            if (currentTool == ToolType.Fill && isDrawing && currentBitmap != null)
+            if (currentTool == ToolType.Fill && isDrawing && currentBitmap != null && lastPoint.X >= 0 && lastPoint.X < currentBitmap.Width && lastPoint.Y >= 0 && lastPoint.Y < currentBitmap.Height)
             {
                 FloodFill(currentBitmap, lastPoint, currentColor);
             }
             isDrawing = false;
+        }
+
+        private void DrawPoint(Bitmap bitmap, Point point)
+        {
+            if (point.X < 0 || point.X >= bitmap.Width || point.Y < 0 || point.Y >= bitmap.Height)
+                return;
+
+            using (Graphics g = Graphics.FromImage(bitmap))
+            {
+                using (Brush brush = new SolidBrush(currentColor))
+                {
+                    g.FillEllipse(brush, point.X - BrushSize / 2, point.Y - BrushSize / 2, BrushSize, BrushSize);
+                }
+            }
         }
 
         private void DrawLine(Graphics g, Point from, Point to)
@@ -71,6 +95,7 @@ namespace GraffitAnimation.Services
             {
                 pen.StartCap = System.Drawing.Drawing2D.LineCap.Round;
                 pen.EndCap = System.Drawing.Drawing2D.LineCap.Round;
+                pen.LineJoin = System.Drawing.Drawing2D.LineJoin.Round;
                 g.DrawLine(pen, from, to);
             }
         }
@@ -81,6 +106,7 @@ namespace GraffitAnimation.Services
             {
                 pen.StartCap = System.Drawing.Drawing2D.LineCap.Round;
                 pen.EndCap = System.Drawing.Drawing2D.LineCap.Round;
+                pen.LineJoin = System.Drawing.Drawing2D.LineJoin.Round;
                 g.DrawLine(pen, from, to);
             }
         }
