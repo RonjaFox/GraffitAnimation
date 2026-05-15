@@ -17,12 +17,15 @@ namespace GraffitAnimation
         private System.Windows.Forms.Timer playbackTimer;
         private Bitmap canvasBitmap;
         private int selectedLayerIndex = 0;
+        private System.Media.SoundPlayer soundPlayer;
+        private bool showLayerBackground = false;
 
         public MainForm()
         {
             InitializeComponent();
             drawingTool = new DrawingTool();
             exportService = new ExportService();
+            soundPlayer = new System.Media.SoundPlayer();
             InitializePlaybackTimer();
             this.Load += MainForm_Load;
         }
@@ -110,6 +113,12 @@ namespace GraffitAnimation
             toolPanel.Controls.Add(colorBtn);
             yPos += 40;
 
+            // Показывать подложку
+            CheckBox showBgCheckbox = new CheckBox() { Text = "👁 Подложка", Left = 10, Top = yPos, Width = 130 };
+            showBgCheckbox.CheckedChanged += (s, e) => { showLayerBackground = showBgCheckbox.Checked; RefreshCanvas(); };
+            toolPanel.Controls.Add(showBgCheckbox);
+            yPos += 30;
+
             // Размер кисти
             Label sizeLabel = new Label() { Text = "Размер:", Left = 10, Top = yPos, Width = 130 };
             toolPanel.Controls.Add(sizeLabel);
@@ -133,7 +142,7 @@ namespace GraffitAnimation
             this.Controls.Add(canvasPanel);
 
             // Правая панель - управление кадрами и слоями
-            Panel rightPanel = new Panel() { Dock = DockStyle.Right, Width = 250, BackColor = Color.LightGray };
+            Panel rightPanel = new Panel() { Dock = DockStyle.Right, Width = 250, BackColor = Color.LightGray, AutoScroll = true };
 
             yPos = 10;
 
@@ -142,7 +151,8 @@ namespace GraffitAnimation
             rightPanel.Controls.Add(fpsLabel);
             yPos += 25;
 
-            NumericUpDown fpsSpinner = new NumericUpDown() { Left = 10, Top = yPos, Width = 230, Value = 10, Minimum = 1, Maximum = 120 };
+            NumericUpDown fpsSpinner = new NumericUpDown() { Left = 10, Top = yPos, Width = 230, Minimum = 1, Maximum = 120 };
+            fpsSpinner.Value = 10;
             fpsSpinner.ValueChanged += (s, e) => UpdatePlaybackSpeed((int)fpsSpinner.Value);
             rightPanel.Controls.Add(fpsSpinner);
             yPos += 35;
@@ -166,6 +176,16 @@ namespace GraffitAnimation
             rightPanel.Controls.Add(currentFrameLabel);
             yPos += 30;
 
+            // Кнопки навигации кадров
+            Button prevFrameBtn = new Button() { Text = "< Предыдущий", Left = 10, Top = yPos, Width = 110, Height = 30 };
+            prevFrameBtn.Click += (s, e) => GoToPreviousFrame();
+            rightPanel.Controls.Add(prevFrameBtn);
+
+            Button nextFrameBtn = new Button() { Text = "Следующий >", Left = 125, Top = yPos, Width = 110, Height = 30 };
+            nextFrameBtn.Click += (s, e) => GoToNextFrame();
+            rightPanel.Controls.Add(nextFrameBtn);
+            yPos += 40;
+
             // Кнопки управления кадрами
             Button addFrameBtn = new Button() { Text = "+ Новый кадр", Left = 10, Top = yPos, Width = 230, Height = 30 };
             addFrameBtn.Click += AddFrame_Click;
@@ -178,32 +198,96 @@ namespace GraffitAnimation
             yPos += 40;
 
             // ListBox для кадров
-            ListBox framesList = new ListBox() { Left = 10, Top = yPos, Width = 230, Height = 150, Name = "FramesList" };
+            ListBox framesList = new ListBox() { Left = 10, Top = yPos, Width = 230, Height = 120, Name = "FramesList" };
             framesList.SelectedIndexChanged += FramesList_SelectedIndexChanged;
             rightPanel.Controls.Add(framesList);
-            yPos += 160;
+            yPos += 130;
 
             // Слои
             Label layersLabel = new Label() { Text = "Слои:", Left = 10, Top = yPos, Width = 230 };
             rightPanel.Controls.Add(layersLabel);
             yPos += 25;
 
+            // Кнопки навигации слоев
+            Button prevLayerBtn = new Button() { Text = "< Предыдущий", Left = 10, Top = yPos, Width = 110, Height = 30 };
+            prevLayerBtn.Click += (s, e) => GoToPreviousLayer();
+            rightPanel.Controls.Add(prevLayerBtn);
+
+            Button nextLayerBtn = new Button() { Text = "Следующий >", Left = 125, Top = yPos, Width = 110, Height = 30 };
+            nextLayerBtn.Click += (s, e) => GoToNextLayer();
+            rightPanel.Controls.Add(nextLayerBtn);
+            yPos += 40;
+
             Button addLayerBtn = new Button() { Text = "+ Добавить слой", Left = 10, Top = yPos, Width = 230, Height = 30 };
             addLayerBtn.Click += AddLayer_Click;
             rightPanel.Controls.Add(addLayerBtn);
             yPos += 40;
 
-            ListBox layersList = new ListBox() { Left = 10, Top = yPos, Width = 230, Height = 120, Name = "LayersList" };
+            ListBox layersList = new ListBox() { Left = 10, Top = yPos, Width = 230, Height = 100, Name = "LayersList" };
             layersList.SelectedIndexChanged += LayersList_SelectedIndexChanged;
             rightPanel.Controls.Add(layersList);
-            yPos += 130;
+            yPos += 110;
 
             // Музыка
             Button addMusicBtn = new Button() { Text = "🎵 Добавить музыку", Left = 10, Top = yPos, Width = 230, Height = 30 };
             addMusicBtn.Click += AddMusic_Click;
             rightPanel.Controls.Add(addMusicBtn);
+            yPos += 40;
+
+            Label musicLabel = new Label() { Text = "Музыка: нет", Left = 10, Top = yPos, Width = 230, Name = "MusicLabel" };
+            rightPanel.Controls.Add(musicLabel);
 
             this.Controls.Add(rightPanel);
+        }
+
+        private void GoToPreviousFrame()
+        {
+            if (currentProject != null && currentProject.Frames.Count > 0)
+            {
+                currentFrameIndex = (currentFrameIndex - 1 + currentProject.Frames.Count) % currentProject.Frames.Count;
+                RefreshFramesList();
+                RefreshLayersList();
+                RefreshCanvas();
+            }
+        }
+
+        private void GoToNextFrame()
+        {
+            if (currentProject != null && currentProject.Frames.Count > 0)
+            {
+                currentFrameIndex = (currentFrameIndex + 1) % currentProject.Frames.Count;
+                RefreshFramesList();
+                RefreshLayersList();
+                RefreshCanvas();
+            }
+        }
+
+        private void GoToPreviousLayer()
+        {
+            if (currentProject != null && currentFrameIndex >= 0 && currentFrameIndex < currentProject.Frames.Count)
+            {
+                var frame = currentProject.Frames[currentFrameIndex];
+                if (frame.Layers.Count > 0)
+                {
+                    selectedLayerIndex = (selectedLayerIndex - 1 + frame.Layers.Count) % frame.Layers.Count;
+                    RefreshLayersList();
+                    RefreshCanvas();
+                }
+            }
+        }
+
+        private void GoToNextLayer()
+        {
+            if (currentProject != null && currentFrameIndex >= 0 && currentFrameIndex < currentProject.Frames.Count)
+            {
+                var frame = currentProject.Frames[currentFrameIndex];
+                if (frame.Layers.Count > 0)
+                {
+                    selectedLayerIndex = (selectedLayerIndex + 1) % frame.Layers.Count;
+                    RefreshLayersList();
+                    RefreshCanvas();
+                }
+            }
         }
 
         private void SelectColor()
@@ -226,6 +310,18 @@ namespace GraffitAnimation
             {
                 isPlaying = true;
                 currentFrameIndex = 0;
+                
+                // Пустить музыку
+                if (!string.IsNullOrEmpty(currentProject.MusicFile) && System.IO.File.Exists(currentProject.MusicFile))
+                {
+                    try
+                    {
+                        soundPlayer.SoundLocation = currentProject.MusicFile;
+                        soundPlayer.PlaySync();
+                    }
+                    catch { }
+                }
+                
                 playbackTimer.Start();
             }
         }
@@ -234,6 +330,7 @@ namespace GraffitAnimation
         {
             isPlaying = false;
             playbackTimer.Stop();
+            soundPlayer.Stop();
         }
 
         private void AddFrame_Click(object sender, EventArgs e)
@@ -241,10 +338,11 @@ namespace GraffitAnimation
             if (currentProject != null)
             {
                 var newFrame = new AnimationFrame();
-                var layer = new AnimationFrame.Layer() { Name = "Layer 1", Bitmap = new Bitmap(800, 600) };
+                var layer = new AnimationFrame.Layer() { Name = "Layer 1", Bitmap = new Bitmap(currentProject.Width, currentProject.Height) };
                 newFrame.Layers.Add(layer);
                 currentProject.Frames.Add(newFrame);
                 currentFrameIndex = currentProject.Frames.Count - 1;
+                selectedLayerIndex = 0;
                 RefreshFramesList();
                 RefreshLayersList();
                 RefreshCanvas();
@@ -255,12 +353,15 @@ namespace GraffitAnimation
         {
             if (currentProject != null && currentFrameIndex >= 0 && currentFrameIndex < currentProject.Frames.Count)
             {
-                currentProject.Frames.RemoveAt(currentFrameIndex);
-                if (currentFrameIndex >= currentProject.Frames.Count && currentFrameIndex > 0)
-                    currentFrameIndex--;
-                RefreshFramesList();
-                RefreshLayersList();
-                RefreshCanvas();
+                if (currentProject.Frames.Count > 1)
+                {
+                    currentProject.Frames.RemoveAt(currentFrameIndex);
+                    if (currentFrameIndex >= currentProject.Frames.Count)
+                        currentFrameIndex = currentProject.Frames.Count - 1;
+                    RefreshFramesList();
+                    RefreshLayersList();
+                    RefreshCanvas();
+                }
             }
         }
 
@@ -272,9 +373,10 @@ namespace GraffitAnimation
                 var layer = new AnimationFrame.Layer() 
                 { 
                     Name = $"Layer {frame.Layers.Count + 1}", 
-                    Bitmap = new Bitmap(800, 600) 
+                    Bitmap = new Bitmap(currentProject.Width, currentProject.Height) 
                 };
                 frame.Layers.Add(layer);
+                selectedLayerIndex = frame.Layers.Count - 1;
                 RefreshLayersList();
                 RefreshCanvas();
             }
@@ -282,22 +384,35 @@ namespace GraffitAnimation
 
         private void FramesList_SelectedIndexChanged(object sender, EventArgs e)
         {
-            ListBox framesList = this.Controls["RightPanel"]?.Controls["FramesList"] as ListBox;
-            if (framesList != null && framesList.SelectedIndex >= 0)
+            foreach (Control ctrl in this.Controls)
             {
-                currentFrameIndex = framesList.SelectedIndex;
-                RefreshLayersList();
-                RefreshCanvas();
+                if (ctrl is Panel && ctrl.Dock == DockStyle.Right)
+                {
+                    ListBox framesList = ctrl.Controls["FramesList"] as ListBox;
+                    if (framesList != null && framesList.SelectedIndex >= 0)
+                    {
+                        currentFrameIndex = framesList.SelectedIndex;
+                        selectedLayerIndex = 0;
+                        RefreshLayersList();
+                        RefreshCanvas();
+                    }
+                }
             }
         }
 
         private void LayersList_SelectedIndexChanged(object sender, EventArgs e)
         {
-            ListBox layersList = this.Controls["RightPanel"]?.Controls["LayersList"] as ListBox;
-            if (layersList != null && layersList.SelectedIndex >= 0)
+            foreach (Control ctrl in this.Controls)
             {
-                selectedLayerIndex = layersList.SelectedIndex;
-                RefreshCanvas();
+                if (ctrl is Panel && ctrl.Dock == DockStyle.Right)
+                {
+                    ListBox layersList = ctrl.Controls["LayersList"] as ListBox;
+                    if (layersList != null && layersList.SelectedIndex >= 0)
+                    {
+                        selectedLayerIndex = layersList.SelectedIndex;
+                        RefreshCanvas();
+                    }
+                }
             }
         }
 
@@ -308,14 +423,15 @@ namespace GraffitAnimation
                 if (ctrl is Panel && ctrl.Dock == DockStyle.Right)
                 {
                     ListBox framesList = ctrl.Controls["FramesList"] as ListBox;
-                    if (framesList != null)
+                    if (framesList != null && currentProject != null)
                     {
                         framesList.Items.Clear();
                         for (int i = 0; i < currentProject.Frames.Count; i++)
                         {
                             framesList.Items.Add($"Кадр {i + 1}");
                         }
-                        framesList.SelectedIndex = currentFrameIndex;
+                        if (currentFrameIndex < framesList.Items.Count)
+                            framesList.SelectedIndex = currentFrameIndex;
                     }
                 }
             }
@@ -336,8 +452,8 @@ namespace GraffitAnimation
                         {
                             layersList.Items.Add(frame.Layers[i].Name);
                         }
-                        if (frame.Layers.Count > 0)
-                            layersList.SelectedIndex = Math.Min(selectedLayerIndex, frame.Layers.Count - 1);
+                        if (frame.Layers.Count > 0 && selectedLayerIndex < frame.Layers.Count)
+                            layersList.SelectedIndex = selectedLayerIndex;
                     }
                 }
             }
@@ -348,7 +464,58 @@ namespace GraffitAnimation
             if (currentProject != null && currentFrameIndex >= 0 && currentFrameIndex < currentProject.Frames.Count)
             {
                 var frame = currentProject.Frames[currentFrameIndex];
-                canvasBitmap = frame.RenderToImage();
+                Bitmap displayBitmap = new Bitmap(currentProject.Width, currentProject.Height);
+                using (Graphics g = Graphics.FromImage(displayBitmap))
+                {
+                    g.Clear(Color.White);
+                    
+                    // Если включена подложка, показываем все слои до текущего
+                    if (showLayerBackground && selectedLayerIndex > 0)
+                    {
+                        for (int i = 0; i < selectedLayerIndex; i++)
+                        {
+                            if (frame.Layers[i].IsVisible && frame.Layers[i].Bitmap != null)
+                            {
+                                g.DrawImage(frame.Layers[i].Bitmap, 0, 0);
+                            }
+                        }
+                        // Показываем предыдущие слои полупрозрачно
+                        using (var attr = new System.Drawing.Imaging.ImageAttributes())
+                        {
+                            var matrix = new System.Drawing.Imaging.ColorMatrix();
+                            matrix.Matrix33 = 0.5f; // 50% прозрачности
+                            attr.SetColorMatrix(matrix);
+                            
+                            for (int i = 0; i < selectedLayerIndex; i++)
+                            {
+                                if (frame.Layers[i].IsVisible && frame.Layers[i].Bitmap != null)
+                                {
+                                    g.DrawImage(frame.Layers[i].Bitmap, 
+                                        new System.Drawing.Rectangle(0, 0, frame.Layers[i].Bitmap.Width, frame.Layers[i].Bitmap.Height),
+                                        0, 0, frame.Layers[i].Bitmap.Width, frame.Layers[i].Bitmap.Height,
+                                        System.Drawing.GraphicsUnit.Pixel, attr);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Показываем выбранный и текущие слои
+                    if (selectedLayerIndex >= 0 && selectedLayerIndex < frame.Layers.Count && frame.Layers[selectedLayerIndex].Bitmap != null)
+                    {
+                        g.DrawImage(frame.Layers[selectedLayerIndex].Bitmap, 0, 0);
+                    }
+                    
+                    // Показываем слои выше выбранного
+                    for (int i = selectedLayerIndex + 1; i < frame.Layers.Count; i++)
+                    {
+                        if (frame.Layers[i].IsVisible && frame.Layers[i].Bitmap != null)
+                        {
+                            g.DrawImage(frame.Layers[i].Bitmap, 0, 0);
+                        }
+                    }
+                }
+                
+                canvasBitmap = displayBitmap;
                 
                 foreach (Control ctrl in this.Controls)
                 {
@@ -362,7 +529,7 @@ namespace GraffitAnimation
                     }
                 }
 
-                // Обновить информацию о кадре
+                // Обновить информацию о кадре и музыке
                 foreach (Control ctrl in this.Controls)
                 {
                     if (ctrl is Panel && ctrl.Dock == DockStyle.Right)
@@ -371,6 +538,15 @@ namespace GraffitAnimation
                         if (frameLabel != null)
                         {
                             frameLabel.Text = $"Кадр: {currentFrameIndex + 1}/{currentProject.Frames.Count}";
+                        }
+                        
+                        Label musicLabel = ctrl.Controls["MusicLabel"] as Label;
+                        if (musicLabel != null)
+                        {
+                            if (string.IsNullOrEmpty(currentProject.MusicFile))
+                                musicLabel.Text = "Музыка: нет";
+                            else
+                                musicLabel.Text = $"Музыка: {System.IO.Path.GetFileName(currentProject.MusicFile)}";
                         }
                     }
                 }
@@ -434,6 +610,7 @@ namespace GraffitAnimation
                 firstFrame.Layers.Add(layer);
                 currentProject.Frames.Add(firstFrame);
                 currentFrameIndex = 0;
+                selectedLayerIndex = 0;
                 RefreshFramesList();
                 RefreshLayersList();
                 RefreshCanvas();
@@ -468,6 +645,7 @@ namespace GraffitAnimation
             {
                 currentProject = AnimationProject.LoadFromFile(openDialog.FileName);
                 currentFrameIndex = 0;
+                selectedLayerIndex = 0;
                 RefreshFramesList();
                 RefreshLayersList();
                 RefreshCanvas();
@@ -540,6 +718,7 @@ namespace GraffitAnimation
                 if (openDialog.ShowDialog() == DialogResult.OK)
                 {
                     currentProject.MusicFile = openDialog.FileName;
+                    RefreshCanvas();
                     MessageBox.Show("Музыка добавлена к проекту!");
                 }
             }
